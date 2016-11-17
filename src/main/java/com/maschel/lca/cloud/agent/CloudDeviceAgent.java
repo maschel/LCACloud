@@ -56,6 +56,8 @@ public class CloudDeviceAgent extends Agent {
     private static final String JSON_ENCODING = "json";
 
     protected void setup() {
+        // TODO: create CloudDevice
+
         addBehaviour(new MessagePerformer());
     }
 
@@ -64,7 +66,7 @@ public class CloudDeviceAgent extends Agent {
 
         @Override
         public void action() {
-            MessageTemplate mtPerformative = MessageTemplate.MatchPerformative(ACLMessage.REQUEST);
+            MessageTemplate mtPerformative = MessageTemplate.MatchPerformative(ACLMessage.INFORM);
             ACLMessage msg = myAgent.receive(mtPerformative);
             if(msg != null) {
                 switch(msg.getOntology()) {
@@ -99,8 +101,49 @@ public class CloudDeviceAgent extends Agent {
         public void action() {
             // (json) string containing sensor name, type and value
             String content = message.getContent();
+            System.out.println(content);
+            // TODO: Send content back to http API
         }
     }
+
+    /**
+     * SensorListBehaviour, is called on a sensorList request message
+     */
+    private class SensorListBehaviour extends OneShotBehaviour {
+
+        private ACLMessage message;
+
+        public SensorListBehaviour(ACLMessage msg) {
+            this.message = msg;
+        }
+
+        @Override
+        public void action() {
+            String content = message.getContent();
+            System.out.println(content);
+            // TODO: Send content back to http API
+        }
+    }
+
+    /**
+     * ActuatorBehaviour, is called on a actuator command message
+     */
+    private class ActuatorBehaviour extends OneShotBehaviour {
+
+        private ACLMessage message;
+
+        public ActuatorBehaviour(ACLMessage msg) {
+            this.message = msg;
+        }
+
+        @Override
+        public void action() {
+            String content = message.getContent();
+            System.out.println(content);
+            // TODO: Send content back to http API
+        }
+    }
+
 
     // SEND MESSAGES
     protected void sendMessage(ACLMessage message, String content) {
