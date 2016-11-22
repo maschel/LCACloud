@@ -36,7 +36,7 @@
 package com.maschel.lca.cloud.device;
 
 /**
- * Created by robbi on 17-11-2016.
+ * Class.
  */
 public class CloudDevice {
     private static String deviceId = "";

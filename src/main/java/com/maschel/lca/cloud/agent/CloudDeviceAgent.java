@@ -35,6 +35,7 @@
 
 package com.maschel.lca.cloud.agent;
 
+import com.maschel.lca.cloud.device.CloudDevice;
 import jade.core.Agent;
 import jade.core.behaviours.CyclicBehaviour;
 import jade.core.behaviours.OneShotBehaviour;
@@ -46,7 +47,7 @@ import org.json.simple.JSONObject;
 import java.util.List;
 
 /**
- * Created by robbi on 16-11-2016.
+ * Class..
  */
 public class CloudDeviceAgent extends Agent {
 
@@ -55,14 +56,29 @@ public class CloudDeviceAgent extends Agent {
     private static final String ACTUATOR_ONTOLOGY = "actuator";
     private static final String JSON_ENCODING = "json";
 
+    private CloudDevice cloudDevice;
+
     protected void setup() {
         // TODO: create CloudDevice
+        Object[] args = getArguments();
+        String s = "unknown";
+        // Get device id
+        if (args != null) {
+            s = (String) args[0];
+        }
+        // Create CloudDevice with device id as param
+        cloudDevice = new CloudDevice(s);
 
-        addBehaviour(new MessagePerformer());
+        // Add behaviour to receive messages
+        addBehaviour(new MessagePerformer(this));
     }
 
     // RECEIVE MESSAGES
     private class MessagePerformer extends CyclicBehaviour {
+
+        public MessagePerformer(Agent a) {
+            super(a);
+        }
 
         @Override
         public void action() {
@@ -71,11 +87,13 @@ public class CloudDeviceAgent extends Agent {
             if(msg != null) {
                 switch(msg.getOntology()) {
                     case SENSOR_ONTOLOGY:
-                        myAgent.addBehaviour(new SensorBehaviour(msg));
+                        myAgent.addBehaviour(new SensorBehaviour(myAgent, msg));
                         break;
                     case SENSOR_LIST_ONTOLOGY:
+                        myAgent.addBehaviour(new SensorListBehaviour(myAgent, msg));
                         break;
                     case ACTUATOR_ONTOLOGY:
+                        myAgent.addBehaviour(new ActuatorBehaviour(myAgent, msg));
                         break;
                 }
             }
@@ -93,7 +111,8 @@ public class CloudDeviceAgent extends Agent {
 
         private ACLMessage message;
 
-        public SensorBehaviour(ACLMessage msg) {
+        public SensorBehaviour(Agent a, ACLMessage msg) {
+            super(a);
             this.message = msg;
         }
 
@@ -113,7 +132,8 @@ public class CloudDeviceAgent extends Agent {
 
         private ACLMessage message;
 
-        public SensorListBehaviour(ACLMessage msg) {
+        public SensorListBehaviour(Agent a, ACLMessage msg) {
+            super(a);
             this.message = msg;
         }
 
@@ -132,7 +152,8 @@ public class CloudDeviceAgent extends Agent {
 
         private ACLMessage message;
 
-        public ActuatorBehaviour(ACLMessage msg) {
+        public ActuatorBehaviour(Agent a, ACLMessage msg) {
+            super(a);
             this.message = msg;
         }
 
