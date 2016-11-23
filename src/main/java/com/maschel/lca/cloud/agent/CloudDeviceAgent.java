@@ -36,9 +36,11 @@
 package com.maschel.lca.cloud.agent;
 
 import com.maschel.lca.cloud.device.CloudDevice;
+import jade.core.AID;
 import jade.core.Agent;
 import jade.core.behaviours.CyclicBehaviour;
 import jade.core.behaviours.OneShotBehaviour;
+import jade.domain.DFService;
 import jade.lang.acl.ACLMessage;
 import jade.lang.acl.MessageTemplate;
 import org.json.simple.JSONArray;
@@ -57,6 +59,7 @@ public class CloudDeviceAgent extends Agent {
     private static final String JSON_ENCODING = "json";
 
     private CloudDevice cloudDevice;
+    private AID localDeviceAID;
 
     protected void setup() {
         // TODO: create CloudDevice
@@ -66,6 +69,8 @@ public class CloudDeviceAgent extends Agent {
         if (args != null) {
             s = (String) args[0];
         }
+
+        System.out.println(s);
         // Create CloudDevice with device id as param
         cloudDevice = new CloudDevice(s);
 
@@ -82,11 +87,16 @@ public class CloudDeviceAgent extends Agent {
 
         @Override
         public void action() {
+
             MessageTemplate mtPerformative = MessageTemplate.MatchPerformative(ACLMessage.INFORM);
             ACLMessage msg = myAgent.receive(mtPerformative);
+
+            System.out.println("in action");
+
             if(msg != null) {
                 switch(msg.getOntology()) {
                     case SENSOR_ONTOLOGY:
+                        System.out.println("in sensor ontology");
                         myAgent.addBehaviour(new SensorBehaviour(myAgent, msg));
                         break;
                     case SENSOR_LIST_ONTOLOGY:
@@ -114,13 +124,19 @@ public class CloudDeviceAgent extends Agent {
         public SensorBehaviour(Agent a, ACLMessage msg) {
             super(a);
             this.message = msg;
+            // Set the localdeviceAID
+            localDeviceAID = msg.getSender();
         }
 
         @Override
         public void action() {
             // (json) string containing sensor name, type and value
             String content = message.getContent();
+            System.out.println("voor content");
             System.out.println(content);
+            System.out.println(cloudDevice.getDeviceId());
+            System.out.println("devid: " + cloudDevice.getDeviceId());
+            System.out.println("na test");
             // TODO: Send content back to http API
         }
     }
@@ -135,12 +151,14 @@ public class CloudDeviceAgent extends Agent {
         public SensorListBehaviour(Agent a, ACLMessage msg) {
             super(a);
             this.message = msg;
+            // Set the localdeviceAID
+            localDeviceAID = msg.getSender();
         }
 
         @Override
         public void action() {
             String content = message.getContent();
-            System.out.println(content);
+            //System.out.println(content);
             // TODO: Send content back to http API
         }
     }
@@ -155,12 +173,14 @@ public class CloudDeviceAgent extends Agent {
         public ActuatorBehaviour(Agent a, ACLMessage msg) {
             super(a);
             this.message = msg;
+            // Set the localdeviceAID
+            localDeviceAID = msg.getSender();
         }
 
         @Override
         public void action() {
             String content = message.getContent();
-            System.out.println(content);
+           // System.out.println(content);
             // TODO: Send content back to http API
         }
     }
@@ -188,5 +208,12 @@ public class CloudDeviceAgent extends Agent {
         jsonObject.put("arguments", JSONArray.toJSONString(args));
 
         sendMessage(message, jsonObject.toJSONString());
+    }
+
+    // Deregister the cloudagent from DF
+    protected void takeDown()
+    {
+        try { DFService.deregister(this); }
+        catch (Exception e) {}
     }
 }

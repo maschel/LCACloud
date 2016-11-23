@@ -62,13 +62,6 @@ public class CloudCommAgent extends Agent {
         addBehaviour(new MessagePerformer(this));
     }
 
-    // TODO: deregister the localagent class instead of this.
-    protected void takeDown()
-    {
-        try { DFService.deregister(this); }
-        catch (Exception e) {}
-    }
-
     // RECEIVE MESSAGES
     private class MessagePerformer extends CyclicBehaviour {
 
@@ -106,29 +99,31 @@ public class CloudCommAgent extends Agent {
         @Override
         public void action() {
             // (json) string containing deviceId
-            String deviceId = message.getContent();
+            //String deviceId = message.getContent();
+            String deviceId = message.getUserDefinedParameter("deviceId");
 
             // Create agent description
             DFAgentDescription dfd = new DFAgentDescription();
-            dfd.setName(message.getSender());
+            //dfd.setName(message.getSender());
 
             // Register a local device (if not already exists)
             // Create service description
             ServiceDescription sd  = new ServiceDescription();
             // Use device id as type
-            sd.setType( deviceId );
+            sd.setType("device");
 
             // Add deviceAID
             //Property deviceAID = new Property("deviceAID", message.getSender().getName());
             //sd.addProperties(deviceAID);
 
             // AID as name
-            sd.setName( message.getSender().getName() );
+            sd.setName(deviceId);
+            dfd.addServices(sd);
+
             // Search or register cloud agent
             AID aid = getService( dfd, deviceId );
 
-
-            // Forward to message to the cloud agent
+            // Forward to message to the cloud device agent
             if(aid != null) {
                 // Set the sender to original sender of this message
                 message.setSender(message.getSender());
@@ -149,27 +144,36 @@ public class CloudCommAgent extends Agent {
     protected void register( DFAgentDescription dfd, String deviceId)
     {
 
-        String name = "Cloud" + dfd.getName().getLocalName();
+        String name = "Cloud" + deviceId;
         Object [] args = new Object[1];
         args[0] = deviceId;
 
+        CloudDeviceAgent cda = new CloudDeviceAgent();
+        cda.setArguments(args);
+
+        dfd.setName(cda.getAID());
+
+        System.out.println(name + " en " + deviceId);
+
         try {
-            AgentController a = c.createNewAgent(name, CloudDeviceAgent.class.getName(), args);
-            a.start();
+            //AgentController a = c.createNewAgent(name, CloudDeviceAgent.class.getName(), args);
+            AgentController a1 = c.acceptNewAgent(name, cda);
+            //a.start();
+            a1.start();
         } catch (Exception e) {
             e.printStackTrace();
         }
 
         try {
-            dfd.setName(getAID(name));
-            DFService.register(this,dfd);
+            DFService.register(cda,dfd);
         }
         catch (Exception e) { e.printStackTrace(); }
     }
 
     /**
-     * Get the CloudDeviceAgent AID related to a given local device ID
+     * Get the CloudDeviceAgent AID related to a given agent description
      * @param dfd The Agent description
+     * @param deviceId Device id
      * @return AID of the device
      */
     protected AID getService( DFAgentDescription dfd, String deviceId)
