@@ -49,7 +49,7 @@ import jade.wrapper.AgentController;
 
 /**
  * Agent class to forward messages between a local device agent and a cloud agent. Needed to perform
- * mapping between a local Device ID -> cloud AID. All communication goes through this agent.
+ * mapping between a local Device ID and a cloud AID. All communication goes through this agent.
  */
 public class CloudCommAgent extends Agent {
 
