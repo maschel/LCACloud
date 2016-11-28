@@ -35,6 +35,8 @@
 
 package com.maschel.lca.cloud.agent;
 
+import com.google.gson.Gson;
+import com.maschel.lca.cloud.agent.message.request.ActuatorRequestMessage;
 import com.maschel.lca.cloud.device.CloudDevice;
 import jade.core.AID;
 import jade.core.Agent;
@@ -43,8 +45,6 @@ import jade.core.behaviours.OneShotBehaviour;
 import jade.domain.DFService;
 import jade.lang.acl.ACLMessage;
 import jade.lang.acl.MessageTemplate;
-import org.json.simple.JSONArray;
-import org.json.simple.JSONObject;
 
 import java.util.List;
 
@@ -57,6 +57,8 @@ public class CloudDeviceAgent extends Agent {
     private static final String SENSOR_LIST_ONTOLOGY = "sensorlist";
     private static final String ACTUATOR_ONTOLOGY = "actuator";
     private static final String JSON_ENCODING = "json";
+
+    private Gson gson = new Gson();
 
     private CloudDevice cloudDevice;
     private AID localDeviceAID;
@@ -199,15 +201,11 @@ public class CloudDeviceAgent extends Agent {
         sendMessage(message, sensorName);
     }
 
-    public void sendActuatorMessage(String actuatorName, List<Object> args) {
+    public void sendActuatorMessage(ActuatorRequestMessage actuatorRequestMessage) {
         ACLMessage message = new ACLMessage(ACLMessage.REQUEST);
         message.setOntology(ACTUATOR_ONTOLOGY);
 
-        JSONObject jsonObject = new JSONObject();
-        jsonObject.put("name", actuatorName);
-        jsonObject.put("arguments", JSONArray.toJSONString(args));
-
-        sendMessage(message, jsonObject.toJSONString());
+        sendMessage(message, gson.toJson(actuatorRequestMessage));
     }
 
     // Deregister the cloudagent from DF
