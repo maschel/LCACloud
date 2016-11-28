@@ -35,6 +35,7 @@
 
 package com.maschel.lca.cloud.agent;
 
+import com.maschel.lca.cloud.api.http.ApiHttp;
 import jade.core.Agent;
 import jade.core.AID;
 import jade.wrapper.AgentContainer;
@@ -53,13 +54,24 @@ import jade.wrapper.AgentController;
  */
 public class CloudCommAgent extends Agent {
 
+    private static CloudCommAgent cloudCommAgent;
+
     private AgentContainer c;
+
+    public static CloudCommAgent getInstance() {
+        return cloudCommAgent;
+    }
 
     protected void setup()
     {
+        cloudCommAgent = this;
+
         c = getContainerController();
 
         addBehaviour(new MessagePerformer(this));
+
+        // FOR NOW START API HERE
+        ApiHttp api = new ApiHttp();
     }
 
     // RECEIVE MESSAGES
@@ -176,7 +188,7 @@ public class CloudCommAgent extends Agent {
      * @param deviceId Device id
      * @return AID of the device
      */
-    protected AID getService( DFAgentDescription dfd, String deviceId)
+    public AID getService( DFAgentDescription dfd, String deviceId)
     {
 
         try
