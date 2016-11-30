@@ -38,10 +38,10 @@ package com.maschel.lca.cloud.device;
 /**
  * Class.
  */
-public class CloudDevice {
+public class Device {
     private static String deviceId = "";
 
-    public CloudDevice(String deviceId) {
+    public Device(String deviceId) {
         this.deviceId = deviceId;
     }
 

@@ -35,10 +35,8 @@
 
 package com.maschel.lca.cloud.agent;
 
-import com.maschel.lca.cloud.api.http.ApiHttp;
 import jade.core.Agent;
 import jade.core.AID;
-import jade.wrapper.AgentContainer;
 import jade.core.behaviours.CyclicBehaviour;
 import jade.core.behaviours.OneShotBehaviour;
 import jade.domain.DFService;
@@ -46,6 +44,7 @@ import jade.domain.FIPAAgentManagement.DFAgentDescription;
 import jade.domain.FIPAAgentManagement.ServiceDescription;
 import jade.domain.FIPAException;
 import jade.lang.acl.ACLMessage;
+import jade.wrapper.AgentContainer;
 import jade.wrapper.AgentController;
 
 /**
@@ -54,27 +53,13 @@ import jade.wrapper.AgentController;
  */
 public class CloudCommAgent extends Agent {
 
-    private static CloudCommAgent cloudCommAgent;
-
-    private AgentContainer c;
-
-    public static CloudCommAgent getInstance() {
-        return cloudCommAgent;
-    }
+    private final String CLOUD_AGENT_DEVICE_PREFIX = "Cloud";
 
     protected void setup()
     {
-        cloudCommAgent = this;
-
-        c = getContainerController();
-
         addBehaviour(new MessagePerformer(this));
-
-        // FOR NOW START API HERE
-        ApiHttp api = new ApiHttp();
     }
 
-    // RECEIVE MESSAGES
     private class MessagePerformer extends CyclicBehaviour {
 
         public MessagePerformer(Agent a) {
@@ -85,7 +70,7 @@ public class CloudCommAgent extends Agent {
         public void action() {
             ACLMessage msg = myAgent.receive();
             if(msg != null) {
-                myAgent.addBehaviour(new SorRBehaviour(myAgent, msg));
+                myAgent.addBehaviour(new MessageForwardingBehaviour(myAgent, msg));
             }
             else {
                 block();
@@ -95,121 +80,101 @@ public class CloudCommAgent extends Agent {
     }
 
     /**
-     * SorRBehaviour, is called on a search or register device request
-     * This will search or register the cloud agent related to a device
-     * and then forward the received message from this device to it's related cloud agent
+     * MessageForwardingBehaviour, is called when a message is received by the CloudCommAgent
+     * This will get or register a CloudDeviceAgent with it's attached Device instance
+     * and then forward the received message from the CloudCommAgent to the found or created
+     * CloudDeviceAgent.
      */
-    private class SorRBehaviour extends OneShotBehaviour {
+    private class MessageForwardingBehaviour extends OneShotBehaviour {
+
+        private final String DEVICE_SERVICE_DESCRIPTION = "device";
+        private final String DEVICE_ID_PARAMETER = "deviceId";
 
         private ACLMessage message;
 
-        public SorRBehaviour(Agent a, ACLMessage msg) {
+        public MessageForwardingBehaviour(Agent a, ACLMessage msg) {
             super(a);
             this.message = msg;
         }
 
         @Override
         public void action() {
-            // (json) string containing deviceId
-            //String deviceId = message.getContent();
-            String deviceId = message.getUserDefinedParameter("deviceId");
 
-            // Create agent description
-            DFAgentDescription dfd = new DFAgentDescription();
-            //dfd.setName(message.getSender());
+            String deviceId = message.getUserDefinedParameter(DEVICE_ID_PARAMETER);
 
-            // Register a local device (if not already exists)
-            // Create service description
-            ServiceDescription sd  = new ServiceDescription();
-            // Use device id as type
-            sd.setType("device");
+            ServiceDescription serviceDescription  = new ServiceDescription();
+            serviceDescription.setType(DEVICE_SERVICE_DESCRIPTION);
+            serviceDescription.setName(deviceId);
 
-            // Add deviceAID
-            //Property deviceAID = new Property("deviceAID", message.getSender().getName());
-            //sd.addProperties(deviceAID);
+            DFAgentDescription dfAgentDescription = new DFAgentDescription();
+            dfAgentDescription.addServices(serviceDescription);
 
-            // AID as name
-            sd.setName(deviceId);
-            dfd.addServices(sd);
+            AID agentIdentifier = getService(dfAgentDescription, deviceId);
 
-            // Search or register cloud agent
-            AID aid = getService( dfd, deviceId );
+            // Forward message
+            if(agentIdentifier != null) {
+                message.setSender(message.getSender()); // Use the original sender
+                message.addReceiver(agentIdentifier);   // The CloudDeviceAgent
+                message.removeReceiver(getAID());       // Remove the CLoudCommAgent as receiver
 
-            // Forward to message to the cloud device agent
-            if(aid != null) {
-                // Set the sender to original sender of this message
-                message.setSender(message.getSender());
-                // Add receiver (the cloud agent we searched/registered above)
-                message.addReceiver(aid);
-                // Remove current receiver (CloudCommAgent)
-                message.removeReceiver(getAID());
-                // send the message to the cloud agent
                 send(message);
+            } else {
+                System.out.println("ERROR: Could not find the AID for the given deviceID");
             }
 
         }
     }
 
-// -------------------- Utility methods to access DF ----------------
+    //region DF Utility methods
 
-
-    protected void register( DFAgentDescription dfd, String deviceId)
+    /**
+     * Register a new CloudDeviceAgent in the DF
+     * @param dfAgentDescription The Agent description
+     * @param deviceId Device id
+     */
+    protected void register(DFAgentDescription dfAgentDescription, String deviceId)
     {
+        CloudDeviceAgent cloudDeviceAgent = new CloudDeviceAgent();
+        cloudDeviceAgent.setArguments(new Object[] { deviceId });
 
-        String name = "Cloud" + deviceId;
-        Object [] args = new Object[1];
-        args[0] = deviceId;
-
-        CloudDeviceAgent cda = new CloudDeviceAgent();
-        cda.setArguments(args);
-
-        dfd.setName(cda.getAID());
-
-        System.out.println(name + " en " + deviceId);
-
+        dfAgentDescription.setName(cloudDeviceAgent.getAID());
+        String cloudDeviceId = CLOUD_AGENT_DEVICE_PREFIX + deviceId;
         try {
-            //AgentController a = c.createNewAgent(name, CloudDeviceAgent.class.getName(), args);
-            AgentController a1 = c.acceptNewAgent(name, cda);
-            //a.start();
-            a1.start();
+            AgentContainer agentContainer = getContainerController();
+            AgentController agentController = agentContainer.acceptNewAgent(cloudDeviceId, cloudDeviceAgent);
+            agentController.start();
+            DFService.register(cloudDeviceAgent, dfAgentDescription);
         } catch (Exception e) {
-            e.printStackTrace();
+            System.out.println("ERROR: Failed to start agent: " + cloudDeviceId + ". " + e.getMessage());
         }
-
-        try {
-            DFService.register(cda,dfd);
-        }
-        catch (Exception e) { e.printStackTrace(); }
     }
 
     /**
      * Get the CloudDeviceAgent AID related to a given agent description
-     * @param dfd The Agent description
+     * @param dfAgentDescription The Agent description
      * @param deviceId Device id
      * @return AID of the device
      */
-    public AID getService( DFAgentDescription dfd, String deviceId)
+    public AID getService(DFAgentDescription dfAgentDescription, String deviceId)
     {
-
         try
         {
-            DFAgentDescription[] result = DFService.search(this, dfd);
-            // Check if cloud agent already exists for this device id
-            if (result.length>0) {
+            DFAgentDescription[] result = DFService.search(this, dfAgentDescription);
+            if (result.length > 0) {
                 // Agent exists, return it's AID
                 return result[0].getName();
             }
             else {
-                // Agent doesn't exists, so register it so it can be find in the next call
-                register(dfd, deviceId);
-                // Now the agent exists and can be returned
-                return getService(dfd, deviceId);
+                // Agent doesn't exists, so register
+                register(dfAgentDescription, deviceId);
+                return getService(dfAgentDescription, deviceId);
             }
         }
-        catch (FIPAException fe) { fe.printStackTrace(); }
-        return null;
+        catch (FIPAException fe) {
+            System.out.println("ERROR: Failed to find or register CloudDeviceAgent. " + fe.getMessage());
+            return null;
+        }
     }
 
-
-
+    //endregion
 }
